@@ -25,21 +25,26 @@
 #include <time.h>
 #ifndef FORTUNE_FILE
 /*Default fortune file*/
-#define FORTUNE_FILE "/Users/yane/fortune.txt"
+#define FORTUNE_FILE "/etc/fortune.txt"
 #endif
 
-/*Size of buffer*/
-#define MAX_FORTUNE_SIZE 80*25
+/*Size of buffer for a single line*/
+#define MAX_FORTUNE_LINE 500
+
+/*Size of buffer for a whole fortune */
+#define MAX_FORTUNE_SIZE 2000
+
+
 
 /*separator*/
 #define SEPARATOR_CHAR '%'
 
 /*function declarations*/
 
-void dofortune(char *filename);
-/*gets and displays a fortune from the supplied file*/
+void dofortune(char *filename, int maxlines);
+/*gets and displays a fortune from the supplied file, with a max size of maxlines lines*/
 
-void readln(FILE *fp, char *buffer);
+char* readln(FILE *fp, char *buffer);
 /*reads a line from file fp into buffer*/
 
 long getfilesize(FILE *fp);
@@ -53,30 +58,37 @@ int getrand(int max);
 
 int main(int argc,char *argv[]){
    char filename[256];
+   int maxlines=0;
    switch(argc){
+   case 2:
+     maxlines=atoi(argv[1]);
+     //fall thru
     case 1:
       /*use default fortune file*/
       strcpy(filename,FORTUNE_FILE);
       break;
-    case 2:
+    case 3:
       /*use supplied file*/
-      strcpy(filename,argv[1]);
+      strcpy(filename,argv[2]);
+      // and get lines
+      maxlines=atoi(argv[1]);
       break;
     default:
       /*print usage and exit*/
-      fprintf(stderr,"Usage: fortune [fortune-file]\n");
+      fprintf(stderr,"Usage: fortune [max lines] [fortune-file]\n");
       exit(1);
    }
    /*retrieve and print the fortune*/
-   dofortune(filename);
+   dofortune(filename,maxlines);
    return(EXIT_SUCCESS);
 }
 
-void dofortune(char *filename){
+void dofortune(char *filename, int maxlines){
    FILE *fp;
    long fsize;
    int rnd;
-   char txt[MAX_FORTUNE_SIZE];
+   char txt[MAX_FORTUNE_LINE];
+   char fortune[MAX_FORTUNE_SIZE];
    
    /*open file*/
    fp=fopen(filename,"rt");
@@ -85,24 +97,42 @@ void dofortune(char *filename){
       printf("%s cannot be opened\n",filename);
       exit(EXIT_FAILURE);
    }
-   
-   /*move to random position in file*/
-   fsize=getfilesize(fp);
-   seedrand();
-   rnd=getrand(fsize);
-   fseek(fp,rnd,SEEK_SET);
-   
-   /*look for next separator*/
-   txt[0]='A';
-   while(txt[0]!=SEPARATOR_CHAR){
-      readln(fp, txt);
-   }
-   
-   /*read and print fortune*/
-   readln(fp,txt);
-   while(txt[0]!='%'){
-      printf("%s",txt);
-      readln(fp, txt);
+
+     fsize=getfilesize(fp);
+     seedrand();
+   int isok=1;
+   while (isok){
+     isok=0;
+     /*move to random position in file*/
+     rnd=getrand(fsize);
+     fseek(fp,rnd,SEEK_SET);
+     
+     /*look for next separator*/
+     txt[0]='A';
+     while(txt[0]!=SEPARATOR_CHAR){
+       if(readln(fp, txt)==NULL) isok=1;
+       if(isok==1) break;
+     }
+     if (isok==1) continue;
+     
+     /*read fortune*/
+     char *ptr=fortune;
+     int lines=0;
+     readln(fp,txt);
+     while(txt[0]!=SEPARATOR_CHAR){
+       int x=sprintf(ptr,"%s",txt);
+       ptr+=x;
+       lines++;
+       if( readln(fp, txt) == NULL) break;
+     }
+     /* if we've read too many lines, try again */
+     if(maxlines!=0 && lines>maxlines){
+       isok=1;
+     }
+     else {
+       printf("%s\n",fortune);
+       isok=0;
+     }
    }
    
    /*close the file*/
@@ -119,14 +149,10 @@ void seedrand(){
 #endif
 }
 
-void readln(FILE *fp, char *buffer){
+char* readln(FILE *fp, char *buffer){
    char *ptr;
-   ptr=fgets(buffer,MAX_FORTUNE_SIZE,fp);
-  if(ptr==NULL){
-      printf("Arrgh! An error!\n");
-      exit(EXIT_FAILURE);
-   }
-   
+   ptr=fgets(buffer,MAX_FORTUNE_LINE,fp);
+   return ptr;
 }
 
 long getfilesize(FILE *fp){
