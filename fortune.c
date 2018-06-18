@@ -89,13 +89,17 @@ void dofortune(char *filename, int maxlines){
    int rnd;
    char txt[MAX_FORTUNE_LINE];
    char fortune[MAX_FORTUNE_SIZE];
-   
    /*open file*/
    fp=fopen(filename,"rt");
    /*check for failure*/
    if(fp==NULL){
-      printf("%s cannot be opened\n",filename);
-      exit(EXIT_FAILURE);
+      char * nfilename=strrchr(filename,'/');
+      nfilename++;
+      fp=fopen(nfilename,"rt");
+      if(fp==NULL){
+         printf("%s cannot be opened\n",filename);
+         exit(EXIT_FAILURE);
+      }
    }
 
      fsize=getfilesize(fp);
